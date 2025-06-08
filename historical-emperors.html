@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tarihî İmparatorluklar Haritası (Güncelleme işlemleri devam ediyor. Bazı hatalar ile karşılaşabilirsiniz.)</title>
+    <title>Tarihî İmparatorluklar Haritası</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -415,8 +415,37 @@
             .right-panel { border-left: none; }
         }
     </style>
+    <style>
+  /* Uyarı kutusu stilleri */
+  #uyariKutusu {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #fff8dc;
+    border: 2px solid #ffa500;
+    padding: 20px 30px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    z-index: 9999;
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    text-align: center;
+    max-width: 80%;
+    border-radius: 8px;
+  }
+
+  body.dimmed {
+    pointer-events: none;
+  }
+</style>
 </head>
 <body>
+    <div id="uyariKutusu">
+  <strong>BU UYGULAMA GELİŞTİRME AŞAMASINDADIR.</strong><br>
+  BAZI HATALAR İLE KARŞILAŞABİLİRSİNİZ.<br>
+  SON SÜRÜM YAYINLANANA KADAR BU UYARIYI GÖRMEYE DEVAM EDECEKSİNİZ.<br>
+  SABRINIZ İÇİN TEŞEKKÜRLER.
+</div>
     <div class="main-container">
         <!-- Sol Panel -->
         <div class="left-panel">
@@ -1261,6 +1290,16 @@
                 document.querySelector('.empire-item').click();
             }, 500);
         });
+        
     </script>
+    <script>
+  // Herhangi bir yere tıklanınca uyarı kutusunu gizle
+  document.addEventListener("click", function () {
+    const kutu = document.getElementById("uyariKutusu");
+    if (kutu) {
+      kutu.style.display = "none";
+    }
+  });
+</script>
 </body>
 </html>
