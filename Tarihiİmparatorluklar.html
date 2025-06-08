@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarihî İmparatorluklar Haritası</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Crimson Text', serif;
+            background-color: #2a2420;
+            color: #3a302a;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Ana Container */
+        .main-container {
+            display: flex;
+            height: 100vh;
+            background: linear-gradient(135deg, #3a302a 0%, #2a2420 100%);
+            position: relative;
+        }
+        
+        .main-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.01) 35px, rgba(255,255,255,.01) 70px),
+                repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(255,255,255,.01) 35px, rgba(255,255,255,.01) 70px);
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        
+        /* Sol Panel */
+        .left-panel {
+            width: 300px;
+            background: linear-gradient(180deg, #4a3f36 0%, #3a302a 100%);
+            border-right: 3px solid #8b7355;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+            overflow-y: auto;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .left-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVQImWNgYGD4z0AswK4SAFXuAf8EPy+xAAAAAElFTkSuQmCC') repeat;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .panel-header {
+            background: linear-gradient(180deg, #8b7355 0%, #6b5745 100%);
+            padding: 25px 20px;
+            text-align: center;
+            border-bottom: 2px solid #5a4a3a;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+        
+        .panel-header h1 {
+            font-family: 'Cinzel', serif;
+            font-size: 24px;
+            color: #f4e4d4;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+        }
+        
+        /* Kategori sistemi */
+        .category {
+            margin-bottom: 5px;
+        }
+        
+        .category-header {
+            padding: 15px 20px;
+            background: rgba(139, 115, 85, 0.3);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid rgba(139, 115, 85, 0.5);
+        }
+        
+        .category-header:hover {
+            background: rgba(139, 115, 85, 0.4);
+        }
+        
+        .category-title {
+            font-family: 'Cinzel', serif;
+            font-size: 18px;
+            color: #d4a574;
+            font-weight: 600;
+        }
+        
+        .category-arrow {
+            transition: transform 0.3s ease;
+            color: #d4a574;
+        }
+        
+        .category.open .category-arrow {
+            transform: rotate(90deg);
+        }
+        
+        .empire-list {
+            list-style: none;
+            display: none;
+            background: rgba(0, 0, 0, 0.1);
+        }
+        
+        .category.open .empire-list {
+            display: block;
+        }
+        
+        .empire-item {
+            padding: 15px 25px 15px 35px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(139, 115, 85, 0.2);
+        }
+        
+        .empire-item::before {
+            content: '';
+            position: absolute;
+            left: -100%;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 115, 85, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .empire-item:hover::before {
+            left: 100%;
+        }
+        
+        .empire-item:hover {
+            background: rgba(139, 115, 85, 0.2);
+            padding-left: 45px;
+        }
+        
+        .empire-item.active {
+            background: rgba(139, 115, 85, 0.4);
+            border-left: 4px solid #d4a574;
+            padding-left: 41px;
+        }
+        
+        .empire-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #f4e4d4;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .empire-years {
+            font-size: 13px;
+            color: #c4a484;
+            margin-top: 3px;
+        }
+        
+        /* Orta Panel - Harita */
+        .map-container {
+            flex: 1;
+            position: relative;
+            border-right: 3px solid #8b7355;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #f4e4d4;
+        }
+        
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            background: 
+                radial-gradient(ellipse at center, transparent 40%, rgba(42, 36, 32, 0.2) 100%),
+                linear-gradient(0deg, rgba(139, 115, 85, 0.05) 0%, transparent 100%);
+        }
+        
+        .map-title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(244, 228, 212, 0.9);
+            padding: 15px 40px;
+            border: 2px solid #8b7355;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+        
+        .map-title h2 {
+            font-family: 'Cinzel', serif;
+            font-size: 28px;
+            color: #3a302a;
+            text-align: center;
+            letter-spacing: 3px;
+        }
+        
+        /* Sağ Panel */
+        .right-panel {
+            width: 350px;
+            background: linear-gradient(180deg, #4a3f36 0%, #3a302a 100%);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            overflow-y: auto;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .right-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAEklEQVQImWNgYGD4z0AswK4SAFXuAf8EPy+xAAAAAElFTkSuQmCC') repeat;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        
+        .info-content {
+            padding: 30px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .info-content.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .empire-flag {
+            width: 100%;
+            height: 200px;
+            background: #3a302a;
+            border: 3px solid #8b7355;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .empire-flag svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .info-title {
+            font-family: 'Cinzel', serif;
+            font-size: 32px;
+            color: #f4e4d4;
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .info-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(139, 115, 85, 0.1);
+            border-left: 3px solid #8b7355;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #d4a574;
+            font-size: 16px;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .info-value {
+            color: #f4e4d4;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        
+        .audio-button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(180deg, #8b7355 0%, #6b5745 100%);
+            border: 2px solid #5a4a3a;
+            color: #f4e4d4;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border-radius: 5px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .audio-button:hover {
+            background: linear-gradient(180deg, #9b8365 0%, #7b6755 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .welcome-message {
+            padding: 50px 30px;
+            text-align: center;
+            color: #c4a484;
+        }
+        
+        .welcome-message h2 {
+            font-family: 'Cinzel', serif;
+            font-size: 28px;
+            color: #f4e4d4;
+            margin-bottom: 20px;
+        }
+        
+        .welcome-message p {
+            font-size: 18px;
+            line-height: 1.8;
+        }
+        
+        /* Leaflet stil özelleştirmeleri */
+        .leaflet-container {
+            background: #f4e4d4;
+            filter: sepia(40%) saturate(0.8) contrast(1.1);
+        }
+        
+        .leaflet-control-zoom {
+            border: 2px solid #8b7355 !important;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+        }
+        
+        .leaflet-control-zoom a {
+            background: #f4e4d4 !important;
+            color: #3a302a !important;
+            border-bottom: 1px solid #8b7355 !important;
+        }
+        
+        .leaflet-control-zoom a:hover {
+            background: #e4d4c4 !important;
+        }
+        
+        /* Scrollbar styling */
+        .left-panel::-webkit-scrollbar,
+        .right-panel::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        .left-panel::-webkit-scrollbar-track,
+        .right-panel::-webkit-scrollbar-track {
+            background: #3a302a;
+        }
+        
+        .left-panel::-webkit-scrollbar-thumb,
+        .right-panel::-webkit-scrollbar-thumb {
+            background: #8b7355;
+            border-radius: 5px;
+        }
+        
+        .left-panel::-webkit-scrollbar-thumb:hover,
+        .right-panel::-webkit-scrollbar-thumb:hover {
+            background: #9b8365;
+        }
+        
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .left-panel { width: 250px; }
+            .right-panel { width: 300px; }
+        }
+        
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column; }
+            .left-panel, .right-panel { width: 100%; height: auto; }
+            .map-container { height: 50vh; }
+            .left-panel { border-right: none; border-bottom: 3px solid #8b7355; }
+            .right-panel { border-left: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Sol Panel -->
+        <div class="left-panel">
+            <div class="panel-header">
+                <h1>TARİHÎ İMPARATORLUKLAR</h1>
+            </div>
+            
+            <!-- Antik Çağ -->
+            <div class="category open">
+                <div class="category-header">
+                    <span class="category-title">Antik Çağ</span>
+                    <span class="category-arrow">▶</span>
+                </div>
+                <ul class="empire-list">
+                    <li class="empire-item" data-empire="egypt">
+                        <div class="empire-name">Antik Mısır</div>
+                        <div class="empire-years">MÖ 3100 - MÖ 30</div>
+                    </li>
+                    <li class="empire-item" data-empire="persian">
+                        <div class="empire-name">Pers İmparatorluğu</div>
+                        <div class="empire-years">MÖ 550 - MÖ 330</div>
+                    </li>
+                    <li class="empire-item" data-empire="macedonian">
+                        <div class="empire-name">Makedon İmparatorluğu</div>
+                        <div class="empire-years">MÖ 336 - MÖ 323</div>
+                    </li>
+                    <li class="empire-item" data-empire="roman">
+                        <div class="empire-name">Roma İmparatorluğu</div>
+                        <div class="empire-years">MÖ 27 - MS 476</div>
+                    </li>
+                    <li class="empire-item" data-empire="carthage">
+                        <div class="empire-name">Kartaca İmparatorluğu</div>
+                        <div class="empire-years">MÖ 814 - MÖ 146</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Orta Çağ -->
+            <div class="category">
+                <div class="category-header">
+                    <span class="category-title">Orta Çağ</span>
+                    <span class="category-arrow">▶</span>
+                </div>
+                <ul class="empire-list">
+                    <li class="empire-item" data-empire="byzantine">
+                        <div class="empire-name">Bizans İmparatorluğu</div>
+                        <div class="empire-years">330 - 1453</div>
+                    </li>
+                    <li class="empire-item" data-empire="umayyad">
+                        <div class="empire-name">Emevi Halifeliği</div>
+                        <div class="empire-years">661 - 750</div>
+                    </li>
+                    <li class="empire-item" data-empire="abbasid">
+                        <div class="empire-name">Abbasi Halifeliği</div>
+                        <div class="empire-years">750 - 1258</div>
+                    </li>
+                    <li class="empire-item" data-empire="mongol">
+                        <div class="empire-name">Moğol İmparatorluğu</div>
+                        <div class="empire-years">1206 - 1368</div>
+                    </li>
+                    <li class="empire-item" data-empire="seljuk">
+                        <div class="empire-name">Büyük Selçuklu Devleti</div>
+                        <div class="empire-years">1037 - 1194</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Yakın Çağ -->
+            <div class="category">
+                <div class="category-header">
+                    <span class="category-title">Yakın Çağ</span>
+                    <span class="category-arrow">▶</span>
+                </div>
+                <ul class="empire-list">
+                    <li class="empire-item" data-empire="ottoman">
+                        <div class="empire-name">Osmanlı İmparatorluğu</div>
+                        <div class="empire-years">1299 - 1922</div>
+                    </li>
+                    <li class="empire-item" data-empire="mughal">
+                        <div class="empire-name">Babür İmparatorluğu</div>
+                        <div class="empire-years">1526 - 1857</div>
+                    </li>
+                    <li class="empire-item" data-empire="spanish">
+                        <div class="empire-name">İspanyol İmparatorluğu</div>
+                        <div class="empire-years">1492 - 1976</div>
+                    </li>
+                    <li class="empire-item" data-empire="portuguese">
+                        <div class="empire-name">Portekiz İmparatorluğu</div>
+                        <div class="empire-years">1415 - 1999</div>
+                    </li>
+                    <li class="empire-item" data-empire="qing">
+                        <div class="empire-name">Çing Hanedanlığı</div>
+                        <div class="empire-years">1636 - 1912</div>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Modern Çağ -->
+            <div class="category">
+                <div class="category-header">
+                    <span class="category-title">Modern Çağ</span>
+                    <span class="category-arrow">▶</span>
+                </div>
+                <ul class="empire-list">
+                    <li class="empire-item" data-empire="british">
+                        <div class="empire-name">Britanya İmparatorluğu</div>
+                        <div class="empire-years">1583 - 1997</div>
+                    </li>
+                    <li class="empire-item" data-empire="french">
+                        <div class="empire-name">Fransız İmparatorluğu</div>
+                        <div class="empire-years">1534 - 1980</div>
+                    </li>
+                    <li class="empire-item" data-empire="russian">
+                        <div class="empire-name">Rus İmparatorluğu</div>
+                        <div class="empire-years">1721 - 1917</div>
+                    </li>
+                    <li class="empire-item" data-empire="japanese">
+                        <div class="empire-name">Japon İmparatorluğu</div>
+                        <div class="empire-years">1868 - 1947</div>
+                    </li>
+                    <li class="empire-item" data-empire="german">
+                        <div class="empire-name">Alman İmparatorluğu</div>
+                        <div class="empire-years">1871 - 1918</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Orta Panel - Harita -->
+        <div class="map-container">
+            <div class="map-title">
+                <h2>DÜNYA HARİTASI</h2>
+            </div>
+            <div id="map"></div>
+            <div class="map-overlay"></div>
+        </div>
+        
+        <!-- Sağ Panel -->
+        <div class="right-panel">
+            <div class="welcome-message">
+                <h2>Hoş Geldiniz</h2>
+                <p>Sol menüden bir imparatorluk seçerek, onun sınırlarını harita üzerinde görüntüleyebilir ve detaylı bilgilerine ulaşabilirsiniz.</p>
+            </div>
+            
+            <div class="info-content" id="info-content">
+                <div class="empire-flag" id="empire-flag"></div>
+                <h2 class="info-title" id="empire-title"></h2>
+                
+                <div class="info-item">
+                    <div class="info-label">Kuruluş Yılı</div>
+                    <div class="info-value" id="founding-year"></div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Yıkılış Yılı</div>
+                    <div class="info-value" id="fall-year"></div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">En Güçlü Dönemi</div>
+                    <div class="info-value" id="peak-period"></div>
+                </div>
+                
+                <div class="info-item">
+                    <div class="info-label">Tarihsel Özet</div>
+                    <div class="info-value" id="summary"></div>
+                </div>
+                
+                <button class="audio-button" onclick="playAudio()">
+                    🔊 Anlatımı Dinle
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Harita başlatma
+        const map = L.map('map', {
+            center: [30, 10],
+            zoom: 2,
+            minZoom: 2,
+            maxZoom: 6,
+            worldCopyJump: true
+        });
+        
+        // OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            opacity: 0.9
+        }).addTo(map);
+        
+        // SVG Bayraklar
+        const flags = {
+            ottoman: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#E30A17"/>
+                <g transform="translate(150,100)">
+                    <circle r="50" fill="white"/>
+                    <circle r="40" fill="#E30A17"/>
+                    <g transform="rotate(-18)">
+                        <circle cx="15" r="32.5" fill="white"/>
+                    </g>
+                    <polygon points="0,-20 7.5,15 -7.5,15" fill="white" transform="translate(25,0) rotate(18)"/>
+                </g>
+            </svg>`,
+            roman: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#8B0000"/>
+                <text x="150" y="100" text-anchor="middle" font-family="Times New Roman" font-size="48" fill="#FFD700" font-weight="bold">SPQR</text>
+                <path d="M50,50 L250,50" stroke="#FFD700" stroke-width="3"/>
+                <path d="M50,150 L250,150" stroke="#FFD700" stroke-width="3"/>
+            </svg>`,
+            british: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#012169"/>
+                <path d="M0,0 L300,200 M300,0 L0,200" stroke="white" stroke-width="40"/>
+                <path d="M0,0 L300,200 M300,0 L0,200" stroke="#C8102E" stroke-width="25"/>
+                <path d="M150,0 L150,200 M0,100 L300,100" stroke="white" stroke-width="66"/>
+                <path d="M150,0 L150,200 M0,100 L300,100" stroke="#C8102E" stroke-width="40"/>
+            </svg>`,
+            mongol: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#005BAC"/>
+                <rect x="0" y="0" width="100" height="200" fill="#DA291C"/>
+                <rect x="200" y="0" width="100" height="200" fill="#DA291C"/>
+                <circle cx="50" cy="50" r="20" fill="#FFD900"/>
+                <circle cx="50" cy="150" r="20" fill="#FFD900"/>
+                <g transform="translate(150,100)">
+                    <circle r="40" fill="#FFD900"/>
+                    <circle cx="0" cy="-10" r="30" fill="#005BAC"/>
+                    <circle cx="0" cy="10" r="5" fill="#FFD900"/>
+                </g>
+            </svg>`,
+            byzantine: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#7B3F99"/>
+                <g transform="translate(150,100)">
+                    <path d="M-60,0 L60,0 M0,-60 L0,60" stroke="#FFD700" stroke-width="8"/>
+                    <g transform="scale(0.8)">
+                        <path d="M-40,-40 L-40,-20 L-20,-20 L-20,20 L-40,20 L-40,40 L40,40 L40,20 L20,20 L20,-20 L40,-20 L40,-40 Z" 
+                              fill="none" stroke="#FFD700" stroke-width="6"/>
+                    </g>
+                    <text y="5" text-anchor="middle" font-family="Times New Roman" font-size="24" fill="#FFD700" font-weight="bold">B</text>
+                </g>
+            </svg>`,
+            egypt: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#CE1126"/>
+                <rect y="0" width="300" height="67" fill="#FFFFFF"/>
+                <rect y="133" width="300" height="67" fill="#000000"/>
+                <g transform="translate(150,100)">
+                    <path d="M-30,-20 L-10,-40 L10,-40 L30,-20 L30,20 L-30,20 Z" fill="#C09300" stroke="#000" stroke-width="2"/>
+                    <circle r="15" fill="#C09300"/>
+                    <path d="M-5,-10 Q0,-15 5,-10 L5,10 L-5,10 Z" fill="#000"/>
+                </g>
+            </svg>`,
+            persian: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#239F40"/>
+                <rect y="0" width="300" height="67" fill="#FFFFFF"/>
+                <rect y="133" width="300" height="67" fill="#DA0000"/>
+                <g transform="translate(150,100)">
+                    <circle r="35" fill="none" stroke="#DA0000" stroke-width="3"/>
+                    <path d="M-20,0 Q-10,-15 0,0 Q10,-15 20,0" fill="none" stroke="#DA0000" stroke-width="3"/>
+                    <circle cx="-20" cy="10" r="10" fill="#DA0000"/>
+                    <circle cx="0" cy="10" r="10" fill="#DA0000"/>
+                    <circle cx="20" cy="10" r="10" fill="#DA0000"/>
+                </g>
+            </svg>`,
+            macedonian: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#D20000"/>
+                <g transform="translate(150,100)">
+                    <circle r="60" fill="#FFCD00"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(0)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(22.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(45)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(67.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(90)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(112.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(135)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(157.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(180)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(202.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(225)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(247.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(270)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(292.5)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(315)"/>
+                    <path d="M0,0 L0,-150 L15,-50 Z" fill="#D20000" transform="rotate(337.5)"/>
+                </g>
+            </svg>`,
+            carthage: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#4B0082"/>
+                <g transform="translate(150,100)">
+                    <circle r="50" fill="#FFD700"/>
+                    <path d="M-30,-20 Q-20,-40 0,-45 Q20,-40 30,-20 L20,0 L0,10 L-20,0 Z" fill="#4B0082"/>
+                    <circle cy="-20" r="10" fill="#4B0082"/>
+                </g>
+            </svg>`,
+            umayyad: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#FFFFFF"/>
+                <rect y="0" width="300" height="100" fill="#000000"/>
+                <g transform="translate(150,100)">
+                    <circle r="40" fill="#008000"/>
+                    <circle cx="10" r="35" fill="#FFFFFF"/>
+                    <polygon points="20,-15 25,0 40,0 28,10 33,25 20,15 7,25 12,10 0,0 15,0" fill="#008000" transform="translate(5,-5)"/>
+                </g>
+            </svg>`,
+            abbasid: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#000000"/>
+                <g transform="translate(150,100)">
+                    <circle r="60" fill="#FFD700"/>
+                    <text y="10" text-anchor="middle" font-family="Arial" font-size="36" fill="#000000">الله</text>
+                </g>
+            </svg>`,
+            seljuk: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#1E90FF"/>
+                <g transform="translate(150,100)">
+                    <path d="M-40,0 Q-20,-30 0,-35 Q20,-30 40,0 Q35,20 20,30 Q0,35 -20,30 Q-35,20 -40,0" fill="#FFD700"/>
+                    <circle r="20" fill="#1E90FF"/>
+                    <path d="M-10,-5 Q0,-15 10,-5 L10,10 L-10,10 Z" fill="#FFD700"/>
+                </g>
+            </svg>`,
+            mughal: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#138808"/>
+                <g transform="translate(150,100)">
+                    <circle r="50" fill="#FFFFFF"/>
+                    <path d="M0,-40 Q20,-20 40,0 Q20,20 0,40 Q-20,20 -40,0 Q-20,-20 0,-40" fill="#FF9933"/>
+                    <circle r="15" fill="#000080"/>
+                </g>
+            </svg>`,
+            spanish: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#AA151B"/>
+                <rect y="50" width="300" height="100" fill="#F1BF00"/>
+                <g transform="translate(75,100)">
+                    <rect x="-20" y="-30" width="40" height="60" fill="#8B4513"/>
+                    <circle cy="-35" r="15" fill="#F1BF00"/>
+                    <text y="10" text-anchor="middle" font-size="16" fill="#8B4513">Plus Ultra</text>
+                </g>
+            </svg>`,
+            portuguese: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#FF0000"/>
+                <rect width="120" height="200" fill="#006600"/>
+                <g transform="translate(120,100)">
+                    <circle r="50" fill="#FFFF00"/>
+                    <g transform="scale(0.7)">
+                        <path d="M-30,-30 L30,-30 L30,30 L-30,30 Z" fill="#FF0000" stroke="#000" stroke-width="2"/>
+                        <circle r="20" fill="#FFFFFF"/>
+                        <circle cx="-10" cy="-10" r="5" fill="#0000FF"/>
+                        <circle cx="10" cy="-10" r="5" fill="#0000FF"/>
+                        <circle cx="-10" cy="10" r="5" fill="#0000FF"/>
+                        <circle cx="10" cy="10" r="5" fill="#0000FF"/>
+                        <circle r="5" fill="#0000FF"/>
+                    </g>
+                </g>
+            </svg>`,
+            qing: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#FFDE00"/>
+                <g transform="translate(150,100)">
+                    <circle r="60" fill="#FF0000"/>
+                    <path d="M-40,-40 Q-60,0 -40,40 Q0,60 40,40 Q60,0 40,-40 Q0,-60 -40,-40" fill="#0000FF"/>
+                    <circle r="30" fill="#FFDE00"/>
+                    <text y="10" text-anchor="middle" font-family="Arial" font-size="24" fill="#000">清</text>
+                </g>
+            </svg>`,
+            french: `<svg viewBox="0 0 300 200">
+                <rect width="100" height="200" fill="#002395"/>
+                <rect x="100" width="100" height="200" fill="#FFFFFF"/>
+                <rect x="200" width="100" height="200" fill="#ED2939"/>
+            </svg>`,
+            russian: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#D52B1E"/>
+                <rect y="0" width="300" height="67" fill="#FFFFFF"/>
+                <rect y="133" width="300" height="67" fill="#0039A6"/>
+                <g transform="translate(150,100)">
+                    <path d="M-40,-40 L-40,40 L40,40 L40,-40 Z" fill="#FFD700" stroke="#000" stroke-width="2"/>
+                    <path d="M-30,-30 L0,-45 L30,-30 L30,-10 L15,0 L15,30 L-15,30 L-15,0 L-30,-10 Z" fill="#000"/>
+                    <circle cy="-20" r="10" fill="#FFD700"/>
+                    <path d="M-5,-25 L5,-25 L0,-15 Z" fill="#000"/>
+                </g>
+            </svg>`,
+            japanese: `<svg viewBox="0 0 300 200">
+                <rect width="300" height="200" fill="#FFFFFF"/>
+                <circle cx="150" cy="100" r="60" fill="#BC002D"/>
+            </svg>`,
+            german: `<svg viewBox="0 0 300 200">
+                <rect y="0" width="300" height="67" fill="#000000"/>
+                <rect y="67" width="300" height="66" fill="#DD0000"/>
+                <rect y="133" width="300" height="67" fill="#FFCE00"/>
+                <g transform="translate(150,100)">
+                    <path d="M-40,-40 L-40,40 L40,40 L40,-40 Z" fill="#FFFFFF" stroke="#000" stroke-width="3"/>
+                    <path d="M-30,-30 L0,-45 L30,-30 L30,30 L-30,30 Z" fill="#000"/>
+                    <text y="10" text-anchor="middle" font-family="Gothic" font-size="16" fill="#FFD700" font-weight="bold">GOTT MIT UNS</text>
+                </g>
+            </svg>`
+        };
+        
+        // İmparatorluk verileri - Detaylı sınırlar ile
+        const empireData = {
+            ottoman: {
+                name: "Osmanlı İmparatorluğu",
+                foundingYear: "1299",
+                fallYear: "1922",
+                peakPeriod: "16. yüzyıl (Kanuni Sultan Süleyman dönemi)",
+                summary: "Anadolu'da kurulan ve altı yüzyıldan fazla hüküm süren büyük bir imparatorluk. Üç kıtada toprakları bulunan Osmanlı, İslam dünyasının lideri konumundaydı. Bilim, sanat ve mimaride önemli eserler bıraktı.",
+                center: [41, 29],
+                zoom: 4,
+                borders: [
+                    // Anadolu ve Balkanlar - Detaylı
+                    [[41.0, 26.0], [41.5, 26.5], [42.0, 27.0], [42.5, 28.0], [42.7, 29.0], [42.5, 30.0], [42.0, 31.0], 
+                     [41.5, 32.0], [41.0, 33.0], [40.5, 34.0], [40.0, 35.0], [39.5, 36.0], [39.0, 37.0], [38.5, 38.0], 
+                     [38.0, 39.0], [37.5, 40.0], [37.0, 41.0], [36.5, 42.0], [36.0, 43.0], [35.5, 44.0], [35.0, 45.0],
+                     [34.5, 46.0], [34.0, 47.0], [33.5, 48.0], [33.0, 49.0], [32.5, 50.0], [32.0, 51.0], [31.5, 52.0],
+                     [31.0, 52.5], [30.5, 52.0], [30.0, 51.0], [30.5, 50.0], [31.0, 49.0], [31.5, 48.0], [32.0, 47.0],
+                     [32.5, 46.0], [33.0, 45.0], [33.5, 44.0], [34.0, 43.0], [34.5, 42.0], [35.0, 41.0], [35.5, 40.0],
+                     [36.0, 39.0], [36.5, 38.0], [37.0, 37.0], [37.5, 36.0], [38.0, 35.0], [38.5, 34.0], [39.0, 33.0],
+                     [39.5, 32.0], [40.0, 31.0], [40.5, 30.0], [41.0, 29.0], [41.5, 28.0], [42.0, 27.5], [42.5, 27.0],
+                     [43.0, 26.5], [43.5, 26.0], [44.0, 25.5], [44.5, 25.0], [45.0, 24.5], [45.5, 24.0], [46.0, 23.5],
+                     [46.5, 23.0], [47.0, 22.5], [47.5, 22.0], [48.0, 21.5], [48.5, 21.0], [49.0, 20.5], [49.5, 20.0],
+                     [50.0, 19.5], [50.2, 19.0], [50.0, 18.5], [49.5, 18.0], [49.0, 17.5], [48.5, 17.0], [48.0, 16.5],
+                     [47.5, 16.0], [47.0, 15.5], [46.5, 15.0], [46.0, 14.5], [45.5, 14.0], [45.0, 13.5], [44.5, 13.0],
+                     [44.0, 13.5], [43.5, 14.0], [43.0, 14.5], [42.5, 15.0], [42.0, 15.5], [41.5, 16.0], [41.0, 16.5],
+                     [40.5, 17.0], [40.0, 17.5], [39.5, 18.0], [39.0, 18.5], [38.5, 19.0], [38.0, 19.5], [37.5, 20.0],
+                     [37.0, 20.5], [36.5, 21.0], [36.0, 21.5], [35.5, 22.0], [35.0, 22.5], [34.5, 23.0], [34.0, 23.5],
+                     [33.5, 24.0], [33.0, 24.5], [32.5, 25.0], [32.0, 25.5], [31.5, 26.0], [31.0, 26.5], [30.5, 27.0],
+                     [30.0, 27.5], [29.5, 28.0], [29.0, 28.5], [28.5, 29.0], [28.0, 29.5], [27.5, 30.0], [27.0, 30.5],
+                     [26.5, 31.0], [26.0, 31.5], [25.5, 32.0], [25.0, 32.5], [24.5, 33.0], [24.0, 33.5], [23.5, 34.0],
+                     [23.0, 34.5], [22.5, 35.0], [22.0, 35.5], [21.5, 36.0], [21.0, 36.5], [20.5, 37.0], [20.0, 37.5],
+                     [19.5, 38.0], [19.0, 38.5], [18.5, 39.0], [18.0, 39.5], [17.5, 40.0], [17.0, 40.5], [16.5, 41.0],
+                     [16.0, 41.5], [15.5, 42.0], [15.0, 42.5], [14.5, 43.0], [14.0, 43.5], [13.5, 44.0], [13.0, 44.5],
+                     [12.5, 45.0], [12.0, 45.5], [11.5, 46.0], [11.0, 46.5], [10.5, 47.0], [10.0, 47.5], [9.5, 48.0],
+                     [9.0, 48.5], [8.5, 49.0], [8.0, 49.5], [7.5, 50.0], [7.0, 50.5], [6.5, 51.0], [6.0, 51.5],
+                     [5.5, 52.0], [5.0, 52.5], [4.5, 53.0], [4.0, 53.5], [3.5, 54.0], [3.0, 54.5], [2.5, 55.0],
+                     [2.0, 55.5], [1.5, 56.0], [1.0, 56.5], [0.5, 57.0], [0.0, 57.5], [-0.5, 58.0], [-1.0, 58.5],
+                     [-1.5, 59.0], [-2.0, 59.5], [-2.5, 60.0], [-3.0, 60.5], [-3.5, 61.0], [-4.0, 61.5], [-4.5, 62.0],
+                     [-5.0, 62.5], [-5.5, 63.0], [-6.0, 63.5], [-6.5, 64.0], [-7.0, 64.5], [-7.5, 65.0], [-8.0, 65.5],
+                     [-8.5, 66.0], [-9.0, 66.5], [-9.5, 67.0], [-10.0, 67.5], [-10.5, 68.0], [-11.0, 68.5], [-11.5, 69.0],
+                     [-12.0, 69.5], [-12.5, 70.0], [-13.0, 70.5], [-13.5, 71.0], [-14.0, 71.5], [-14.5, 72.0], [-15.0, 72.5],
+                     [-15.5, 73.0], [-16.0, 73.5], [-16.5, 74.0], [-17.0, 74.5], [-17.5, 75.0], [-18.0, 75.5], [-18.5, 76.0],
+                     [-19.0, 76.5], [-19.5, 77.0], [-20.0, 77.5], [-20.5, 78.0], [-21.0, 78.5], [-21.5, 79.0], [-22.0, 79.5],
+                     [-22.5, 80.0], [-23.0, 80.5], [-23.5, 81.0], [-24.0, 81.5], [-24.5, 82.0], [-25.0, 82.5], [-25.5, 83.0],
+                     [-26.0, 83.5], [-26.5, 84.0], [-27.0, 84.5], [-27.5, 85.0], [-28.0, 85.5], [-28.5, 86.0], [-29.0, 86.5],
+                     [-29.5, 87.0], [-30.0, 87.5], [-30.5, 88.0], [-31.0, 88.5], [-31.5, 89.0], [-32.0, 89.5], [-32.5, 90.0],
+                     [-33.0, 90.5], [-33.5, 91.0], [-34.0, 91.5], [-34.5, 92.0], [-35.0, 92.5], [-35.5, 93.0], [-36.0, 93.5],
+                     [-36.5, 94.0], [-37.0, 94.5], [-37.5, 95.0], [-38.0, 95.5], [-38.5, 96.0], [-39.0, 96.5], [-39.5, 97.0],
+                     [-40.0, 97.5], [-40.5, 98.0], [-41.0, 98.5], [-41.5, 99.0], [-42.0, 99.5], [-42.5, 100.0]]
+                ]
+            },
+            // Diğer imparatorluklar için de benzer detaylı sınırlar eklenebilir
+            // Şimdilik basitleştirilmiş versiyonlar
+            roman: {
+                name: "Roma İmparatorluğu",
+                foundingYear: "MÖ 27",
+                fallYear: "MS 476",
+                peakPeriod: "2. yüzyıl (Beş İyi İmparator dönemi)",
+                summary: "Akdeniz havzasının tamamına hükmeden antik dünyanın en büyük imparatorluğu. Hukuk, mühendislik ve yönetim alanlarında modern dünyaya büyük miraslar bıraktı.",
+                center: [41.9, 12.5],
+                zoom: 4,
+                borders: [
+                    [[55, -10], [55, 0], [52, 5], [50, 10], [48, 15], [46, 20], [44, 25], 
+                     [42, 30], [40, 35], [38, 40], [35, 42], [32, 40], [30, 35], [28, 30], 
+                     [30, 25], [32, 20], [34, 15], [36, 10], [38, 5], [40, 0], [42, -5], 
+                     [45, -8], [50, -10], [55, -10]]
+                ]
+            },
+            british: {
+                name: "Britanya İmparatorluğu",
+                foundingYear: "1583",
+                fallYear: "1997",
+                peakPeriod: "19. yüzyıl sonu - 20. yüzyıl başı",
+                summary: "Tarihin en geniş topraklara sahip imparatorluğu. 'Güneş batmayan imparatorluk' olarak anıldı. Dünya ticaretini ve sanayileşmeyi şekillendirdi.",
+                center: [20, 0],
+                zoom: 2,
+                borders: [
+                    [[60, -10], [60, 2], [50, 2], [50, -10], [60, -10]],
+                    [[35, 68], [35, 88], [8, 88], [8, 68], [35, 68]],
+                    [[-10, 113], [-10, 154], [-44, 154], [-44, 113], [-10, 113]],
+                    [[85, -140], [85, -50], [42, -50], [42, -140], [85, -140]],
+                    [[-22, 16], [-22, 33], [-35, 33], [-35, 16], [-22, 16]]
+                ]
+            },
+            mongol: {
+                name: "Moğol İmparatorluğu",
+                foundingYear: "1206",
+                fallYear: "1368",
+                peakPeriod: "13. yüzyıl (Cengiz Han ve halefleri)",
+                summary: "Cengiz Han tarafından kurulan, tarihin en büyük kara imparatorluğu. Asya'dan Avrupa'ya uzanan topraklarda İpek Yolu ticaretini kontrol etti.",
+                center: [47, 103],
+                zoom: 3,
+                borders: [
+                    [[70, 20], [70, 140], [60, 145], [50, 140], [40, 130], [35, 120], 
+                     [30, 100], [35, 80], [40, 60], [45, 40], [50, 30], [55, 25], 
+                     [60, 20], [70, 20]]
+                ]
+            },
+            byzantine: {
+                name: "Bizans İmparatorluğu",
+                foundingYear: "330",
+                fallYear: "1453",
+                peakPeriod: "6. yüzyıl (I. Justinianus dönemi)",
+                summary: "Doğu Roma İmparatorluğu olarak da bilinen, bin yıldan fazla ayakta kalan Hıristiyan imparatorluğu. Antik Yunan ve Roma kültürünü Orta Çağ'a taşıdı.",
+                center: [41, 28.95],
+                zoom: 5,
+                borders: [
+                    [[45, 20], [45, 35], [42, 40], [38, 42], [35, 40], [32, 35], 
+                     [30, 30], [32, 25], [35, 22], [38, 20], [42, 18], [45, 20]],
+                    [[46, 10], [46, 15], [38, 15], [38, 10], [46, 10]],
+                    [[35, 10], [35, 25], [30, 25], [30, 10], [35, 10]]
+                ]
+            },
+            egypt: {
+                name: "Antik Mısır",
+                foundingYear: "MÖ 3100",
+                fallYear: "MÖ 30",
+                peakPeriod: "Yeni Krallık Dönemi (MÖ 1550-1077)",
+                summary: "Nil Nehri kıyısında gelişen, piramitleri ve firavunlarıyla ünlü antik medeniyet. Yazı, matematik ve tıp alanlarında önemli katkılarda bulundu.",
+                center: [26, 30],
+                zoom: 5,
+                borders: [
+                    [[31.5, 25], [31, 27], [30, 29], [28, 31], [26, 32], [24, 33], 
+                     [22, 31], [22, 29], [24, 27], [26, 26], [28, 25], [30, 24], [31.5, 25]]
+                ]
+            },
+            persian: {
+                name: "Pers İmparatorluğu",
+                foundingYear: "MÖ 550",
+                fallYear: "MÖ 330",
+                peakPeriod: "Büyük Kyros ve I. Darius dönemi",
+                summary: "Ahameniş hanedanı tarafından kurulan, antik dünyanın en büyük imparatorluklarından biri. Hoşgörülü yönetimi ve Kral Yolu ile tanındı.",
+                center: [32, 53],
+                zoom: 4,
+                borders: [
+                    [[40, 25], [42, 30], [40, 40], [38, 50], [35, 60], [30, 65], 
+                     [25, 62], [20, 58], [18, 50], [20, 40], [25, 35], [30, 30], 
+                     [35, 28], [40, 25]]
+                ]
+            },
+            macedonian: {
+                name: "Makedon İmparatorluğu",
+                foundingYear: "MÖ 336",
+                fallYear: "MÖ 323",
+                peakPeriod: "Büyük İskender dönemi",
+                summary: "Büyük İskender tarafından kurulan, kısa ömürlü ama çok geniş topraklara yayılan imparatorluk. Helenistik kültürün yayılmasında önemli rol oynadı.",
+                center: [35, 45],
+                zoom: 4,
+                borders: [
+                    [[42, 20], [40, 25], [38, 35], [35, 50], [32, 65], [30, 70], 
+                     [25, 68], [20, 60], [18, 45], [20, 30], [25, 25], [30, 22], 
+                     [35, 20], [40, 18], [42, 20]]
+                ]
+            },
+            carthage: {
+                name: "Kartaca İmparatorluğu",
+                foundingYear: "MÖ 814",
+                fallYear: "MÖ 146",
+                peakPeriod: "MÖ 3. yüzyıl",
+                summary: "Fenike kolonisi olarak kurulan, Akdeniz ticaretinde önemli rol oynayan denizci imparatorluk. Roma ile girdiği Pön Savaşları ile tanınır.",
+                center: [36.8, 10.2],
+                zoom: 5,
+                borders: [
+                    [[37, 8], [38, 10], [37, 12], [35, 13], [33, 12], [32, 10], 
+                     [33, 8], [35, 7], [37, 8]]
+                ]
+            },
+            umayyad: {
+                name: "Emevi Halifeliği",
+                foundingYear: "661",
+                fallYear: "750",
+                peakPeriod: "8. yüzyıl başları",
+                summary: "İslam'ın ilk büyük hanedanlık devleti. Başkenti Şam'da bulunan Emeviler, İslam topraklarını İspanya'dan Orta Asya'ya kadar genişletti.",
+                center: [33, 36],
+                zoom: 3,
+                borders: [
+                    [[40, -10], [38, 0], [35, 10], [32, 20], [30, 30], [28, 40], [26, 50], 
+                     [24, 60], [22, 70], [20, 80], [22, 85], [25, 80], [28, 75], [30, 70], 
+                     [32, 60], [35, 50], [38, 40], [40, 30], [42, 20], [44, 10], [45, 0], 
+                     [43, -5], [40, -10]]
+                ]
+            },
+            abbasid: {
+                name: "Abbasi Halifeliği",
+                foundingYear: "750",
+                fallYear: "1258",
+                peakPeriod: "9. yüzyıl (Harun Reşid dönemi)",
+                summary: "İslam'ın altın çağını yaşatan halifelik. Bağdat'ı başkent yapan Abbasiler, bilim ve kültürde büyük gelişmelere öncülük etti.",
+                center: [33, 44],
+                zoom: 4,
+                borders: [
+                    [[40, 30], [38, 35], [35, 40], [32, 45], [30, 50], [28, 55], [26, 60], 
+                     [24, 65], [22, 70], [20, 75], [22, 78], [25, 75], [28, 70], [30, 65], 
+                     [32, 60], [35, 55], [38, 50], [40, 45], [42, 40], [43, 35], [42, 30], 
+                     [40, 30]]
+                ]
+            },
+            seljuk: {
+                name: "Büyük Selçuklu Devleti",
+                foundingYear: "1037",
+                fallYear: "1194",
+                peakPeriod: "11. yüzyıl (Alparslan ve Melikşah dönemi)",
+                summary: "Türk-İslam devleti. Anadolu'nun Türkleşmesinde önemli rol oynadı. Nizamiye medreselerini kurarak eğitim sistemine katkıda bulundu.",
+                center: [35, 50],
+                zoom: 4,
+                borders: [
+                    [[42, 35], [40, 40], [38, 45], [35, 50], [32, 55], [30, 60], [28, 58], 
+                     [30, 55], [32, 50], [35, 45], [38, 40], [40, 35], [42, 35]]
+                ]
+            },
+            mughal: {
+                name: "Babür İmparatorluğu",
+                foundingYear: "1526",
+                fallYear: "1857",
+                peakPeriod: "17. yüzyıl (Şah Cihan ve Aurangzeb dönemi)",
+                summary: "Hindistan'da kurulan Türk-Moğol kökenli imparatorluk. Tac Mahal gibi muhteşem mimari eserleri ve zengin kültürel mirası ile tanınır.",
+                center: [28, 77],
+                zoom: 4,
+                borders: [
+                    [[35, 68], [33, 70], [30, 72], [28, 75], [25, 77], [22, 78], [20, 80], 
+                     [18, 82], [15, 84], [12, 85], [10, 83], [8, 80], [10, 77], [12, 75], 
+                     [15, 73], [18, 71], [20, 70], [23, 68], [26, 67], [29, 66], [32, 65], 
+                     [35, 68]]
+                ]
+            },
+            spanish: {
+                name: "İspanyol İmparatorluğu",
+                foundingYear: "1492",
+                fallYear: "1976",
+                peakPeriod: "16-17. yüzyıl",
+                summary: "Keşifler Çağı'nın öncüsü. Amerika'nın büyük bölümünü kolonileştirdi. 'Güneş batmayan imparatorluk' unvanını ilk kullanan devletlerden biri.",
+                center: [40, -3],
+                zoom: 2,
+                borders: [
+                    // İspanya
+                    [[43, -9], [43, 3], [36, 3], [36, -9], [43, -9]],
+                    // Güney Amerika
+                    [[12, -85], [12, -35], [-55, -35], [-55, -85], [12, -85]],
+                    // Meksika ve Orta Amerika
+                    [[32, -118], [32, -86], [14, -86], [14, -118], [32, -118]]
+                ]
+            },
+            portuguese: {
+                name: "Portekiz İmparatorluğu",
+                foundingYear: "1415",
+                fallYear: "1999",
+                peakPeriod: "16. yüzyıl",
+                summary: "Denizcilik ve keşiflerde öncü. Afrika, Asya ve Güney Amerika'da ticaret üsleri kurdu. En uzun ömürlü sömürge imparatorluklarından biri.",
+                center: [39, -8],
+                zoom: 2,
+                borders: [
+                    // Portekiz
+                    [[42, -9.5], [42, -6], [37, -6], [37, -9.5], [42, -9.5]],
+                    // Brezilya
+                    [[5, -35], [5, -74], [-33, -74], [-33, -35], [5, -35]],
+                    // Angola
+                    [[-5, 12], [-5, 24], [-18, 24], [-18, 12], [-5, 12]],
+                    // Mozambik
+                    [[-10, 35], [-10, 41], [-27, 41], [-27, 35], [-10, 35]]
+                ]
+            },
+            qing: {
+                name: "Çing Hanedanlığı",
+                foundingYear: "1636",
+                fallYear: "1912",
+                peakPeriod: "18. yüzyıl (Kangxi ve Qianlong dönemleri)",
+                summary: "Çin'in son imparatorluk hanedanı. Mançu kökenli yöneticiler, Çin kültürünü benimseyerek ülkeyi en geniş sınırlarına ulaştırdı.",
+                center: [35, 105],
+                zoom: 4,
+                borders: [
+                    [[53, 73], [50, 80], [47, 90], [45, 100], [43, 110], [40, 120], [35, 125], 
+                     [30, 122], [25, 118], [20, 112], [18, 105], [20, 100], [22, 95], [25, 90], 
+                     [28, 85], [32, 80], [36, 75], [40, 73], [45, 70], [50, 68], [53, 73]]
+                ]
+            },
+            french: {
+                name: "Fransız İmparatorluğu",
+                foundingYear: "1534",
+                fallYear: "1980",
+                peakPeriod: "19. yüzyıl sonu - 20. yüzyıl başı",
+                summary: "Avrupa'nın büyük sömürge güçlerinden biri. Afrika, Asya ve Amerika'da geniş topraklar edindi. Kültürel etkisi günümüzde hala devam ediyor.",
+                center: [46, 2],
+                zoom: 2,
+                borders: [
+                    // Fransa
+                    [[51, -5], [51, 8], [42, 8], [42, -5], [51, -5]],
+                    // Batı Afrika
+                    [[20, -17], [20, 15], [5, 15], [5, -17], [20, -17]],
+                    // Çinhindi
+                    [[23, 102], [23, 109], [8, 109], [8, 102], [23, 102]]
+                ]
+            },
+            russian: {
+                name: "Rus İmparatorluğu",
+                foundingYear: "1721",
+                fallYear: "1917",
+                peakPeriod: "19. yüzyıl",
+                summary: "Dünya tarihinin en büyük kara imparatorluklarından biri. Avrupa'dan Pasifik'e uzanan toprakları kontrol etti.",
+                center: [55, 37],
+                zoom: 3,
+                borders: [
+                    [[71, 20], [68, 30], [65, 40], [62, 50], [60, 60], [58, 80], [56, 100], 
+                     [54, 120], [52, 140], [50, 160], [48, 170], [45, 175], [43, 170], [45, 160], 
+                     [47, 140], [50, 120], [52, 100], [54, 80], [56, 60], [58, 40], [60, 30], 
+                     [63, 25], [66, 20], [69, 18], [71, 20]]
+                ]
+            },
+            japanese: {
+                name: "Japon İmparatorluğu",
+                foundingYear: "1868",
+                fallYear: "1947",
+                peakPeriod: "1930'lar - 1940'lar başı",
+                summary: "Meiji Restorasyonu ile modernleşen Japonya, Asya-Pasifik bölgesinde güçlü bir imparatorluk kurdu.",
+                center: [36, 138],
+                zoom: 4,
+                borders: [
+                    // Japonya ana adaları
+                    [[45, 140], [43, 145], [40, 142], [35, 140], [33, 135], [31, 130], 
+                     [33, 128], [35, 130], [38, 135], [41, 138], [43, 140], [45, 140]],
+                    // Kore
+                    [[43, 124], [43, 131], [33, 131], [33, 124], [43, 124]],
+                    // Mançurya
+                    [[53, 120], [53, 135], [40, 135], [40, 120], [53, 120]]
+                ]
+            },
+            german: {
+                name: "Alman İmparatorluğu",
+                foundingYear: "1871",
+                fallYear: "1918",
+                peakPeriod: "1890'lar - 1910'lar",
+                summary: "Bismarck tarafından birleştirilen Alman devletleri, güçlü bir endüstriyel ve askeri güç haline geldi.",
+                center: [52, 13],
+                zoom: 5,
+                borders: [
+                    [[55, 5], [54, 8], [53, 10], [52, 13], [51, 15], [49, 17], [47, 15], 
+                     [46, 13], [47, 10], [48, 8], [49, 6], [51, 5], [53, 4], [55, 5]]
+                ]
+            }
+        };
+        
+        let currentBorderLayers = [];
+        let currentEmpire = null;
+        
+        // İmparatorluk sınırlarını çizme
+        function drawEmpireBorders(empire) {
+            // Önceki sınırları kaldır
+            currentBorderLayers.forEach(layer => {
+                map.removeLayer(layer);
+            });
+            currentBorderLayers = [];
+            
+            const data = empireData[empire];
+            
+            // Her sınır parçası için polygon oluştur
+            data.borders.forEach((border, index) => {
+                const polygon = L.polygon(border, {
+                    color: '#8b7355',
+                    weight: 3,
+                    opacity: 0,
+                    fillColor: '#d4a574',
+                    fillOpacity: 0,
+                    dashArray: '10, 5'
+                }).addTo(map);
+                
+                currentBorderLayers.push(polygon);
+                
+                // Animasyon
+                setTimeout(() => {
+                    polygon.setStyle({
+                        opacity: 1,
+                        fillOpacity: 0.3
+                    });
+                }, 100 + (index * 200));
+            });
+            
+            // Haritayı imparatorluğa odakla
+            setTimeout(() => {
+                map.flyTo(data.center, data.zoom, {
+                    duration: 1.5
+                });
+            }, 300);
+        }
+        
+        // İmparatorluk bilgilerini güncelle
+        function updateEmpireInfo(empire) {
+            const data = empireData[empire];
+            const infoContent = document.getElementById('info-content');
+            const welcomeMessage = document.querySelector('.welcome-message');
+            
+            // Hoş geldiniz mesajını gizle
+            welcomeMessage.style.display = 'none';
+            
+            // Bayrak güncelle
+            document.getElementById('empire-flag').innerHTML = flags[empire];
+            
+            // Bilgileri güncelle
+            document.getElementById('empire-title').textContent = data.name;
+            document.getElementById('founding-year').textContent = data.foundingYear;
+            document.getElementById('fall-year').textContent = data.fallYear;
+            document.getElementById('peak-period').textContent = data.peakPeriod;
+            document.getElementById('summary').textContent = data.summary;
+            
+            // Info panelini göster
+            infoContent.classList.add('active');
+        }
+        
+        // Kategori açma/kapama
+        document.querySelectorAll('.category-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const category = this.parentElement;
+                category.classList.toggle('open');
+            });
+        });
+        
+        // İmparatorluk seçimi
+        document.querySelectorAll('.empire-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                
+                // Aktif sınıfı güncelle
+                document.querySelectorAll('.empire-item').forEach(el => {
+                    el.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // İmparatorluğu seç
+                const empire = this.dataset.empire;
+                currentEmpire = empire;
+                
+                // Harita ve bilgileri güncelle
+                drawEmpireBorders(empire);
+                updateEmpireInfo(empire);
+            });
+        });
+        
+        // Ses fonksiyonu (şimdilik boş)
+        function playAudio() {
+            console.log(`${currentEmpire} imparatorluğu için ses anlatımı oynatılıyor...`);
+            alert('Ses anlatımı özelliği yakında eklenecek!');
+        }
+        
+        // Harita yüklendiğinde
+        window.addEventListener('load', () => {
+            // İlk kategoriyi aç
+            document.querySelector('.category').classList.add('open');
+            
+            // İlk öğeyi otomatik seç
+            setTimeout(() => {
+                document.querySelector('.empire-item').click();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
